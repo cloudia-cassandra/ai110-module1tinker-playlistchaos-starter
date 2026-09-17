@@ -61,7 +61,6 @@ def classify_song(song: Song, profile: Dict[str, object]) -> str:
     """Return a mood label given a song and user profile."""
     energy = song.get("energy", 0)
     genre = song.get("genre", "")
-    title = song.get("title", "")
 
     hype_min_energy = profile.get("hype_min_energy", 7)
     chill_max_energy = profile.get("chill_max_energy", 3)
@@ -71,12 +70,14 @@ def classify_song(song: Song, profile: Dict[str, object]) -> str:
     chill_keywords = ["lofi", "ambient", "sleep"]
 
     is_hype_keyword = any(k in genre for k in hype_keywords)
-    is_chill_keyword = any(k in title for k in chill_keywords)
+    is_chill_keyword = any(k in genre for k in chill_keywords)
 
-    if genre == favorite_genre or energy >= hype_min_energy or is_hype_keyword:
-        return "Hype"
+    # Low energy / chill genre should win even if the song matches the
+    # favorite genre, so a calm favorite-genre song isn't marked Hype.
     if energy <= chill_max_energy or is_chill_keyword:
         return "Chill"
+    if genre == favorite_genre or energy >= hype_min_energy or is_hype_keyword:
+        return "Hype"
     return "Mixed"
 
 
@@ -168,8 +169,8 @@ def search_songs(
 
     for song in songs:
         value = str(song.get(field, "")).lower()
-        if value and q in value:
-            filtered.append(song)
+        if value and q in value:    # the bug was here - it checks whether the whole artist name is contained in search text, backwards. "AC" checks "ac/dc" in "ac", which is false
+            filtered.append(song)   # query is contained in the artist name: q in value 
 
     return filtered
 
