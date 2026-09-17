@@ -102,7 +102,9 @@ def merge_playlists(a: PlaylistMap, b: PlaylistMap) -> PlaylistMap:
     """Merge two playlist maps into a new map."""
     merged: PlaylistMap = {}
     for key in set(list(a.keys()) + list(b.keys())):
-        merged[key] = a.get(key, [])
+        # list(...) makes a copy — without it, .extend() below mutates
+        # a's original list in place, corrupting the caller's data.
+        merged[key] = list(a.get(key, []))
         merged[key].extend(b.get(key, []))
     return merged
 
@@ -118,10 +120,15 @@ def compute_playlist_stats(playlists: PlaylistMap) -> Dict[str, object]:
         all_songs.extend(songs)
 
     hype_count = len(hype)
-    hype_ratio = hype_count / hype_count if hype_count > 0 else 0.0
+    total_songs = len(all_songs)
+    # was hype_count / hype_count, which is always 1.0 or 0.0 —
+    # a ratio needs the total song count as its denominator.
+    hype_ratio = hype_count / total_songs if total_songs > 0 else 0.0
 
-    hype_energy = sum(song.get("energy", 0) for song in hype)
-    avg_energy = hype_energy / len(all_songs) if all_songs else 0.0
+    # was summing only hype-song energy while dividing by every song —
+    # "average energy" should be computed over all songs, not a mix.
+    total_energy = sum(song.get("energy", 0) for song in all_songs)
+    avg_energy = total_energy / total_songs if total_songs > 0 else 0.0
 
     top_artist, top_count = most_common_artist(all_songs)
 
@@ -192,6 +199,11 @@ def random_choice_or_none(songs: List[Song]) -> Optional[Song]:
     """Return a random song or None."""
     import random
 
+    # random.choice() raises IndexError on an empty list, but callers
+    # (see lucky_section in app.py) expect None so they can show a
+    # "no songs available" message instead of crashing.
+    if not songs:
+        return None
     return random.choice(songs)
 
 
